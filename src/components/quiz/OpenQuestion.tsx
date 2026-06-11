@@ -52,7 +52,10 @@ export default function OpenQuestion({ ticket, question, onPassed, onFailed }: P
         }),
       })
 
-      if (!res.ok || !res.body) throw new Error()
+      if (!res.ok || !res.body) {
+        const errText = await res.text().catch(() => `HTTP ${res.status}`)
+        throw new Error(errText)
+      }
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
@@ -85,8 +88,9 @@ export default function OpenQuestion({ ticket, question, onPassed, onFailed }: P
       } else if (text.includes(FAILED_SIGNAL)) {
         setVerdict("failed")
       }
-    } catch {
-      setMessages((prev) => [...prev, { role: "assistant", content: "Ошибка соединения." }])
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Ошибка соединения."
+      setMessages((prev) => [...prev, { role: "assistant", content: `Ошибка: ${msg.slice(0, 200)}` }])
     } finally {
       setLoading(false)
     }
