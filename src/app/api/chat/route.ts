@@ -46,7 +46,7 @@ ${ticketContent ? `\nМатериал билета:\n${ticketContent}` : ""}
       "X-Title": "LGU Exam Prep",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.0-flash-exp:free",
+      model: "deepseek/deepseek-chat:free",
       messages: [{ role: "system", content: systemPrompt }, ...messages],
       stream: true,
     }),
