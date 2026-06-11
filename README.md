@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Госэкзамен — Реклама и Журналистика
 
-## Getting Started
+Веб-приложение для подготовки к государственному экзамену. Два режима на каждый билет: тест из 10 случайных MCQ + открытый вопрос с оценкой от AI, либо только открытый вопрос.
 
-First, run the development server:
+## Стек
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Next.js 16** (App Router) + TypeScript
+- **Tailwind CSS v4** + `@tailwindcss/typography` (prose)
+- **react-markdown** — рендер теории билетов
+- **OpenRouter** (`openai/gpt-4o-mini`) — AI-оценка открытых вопросов
+- **localStorage** — хранение прогресса
+
+## Структура данных
+
+```
+src/data/
+├── tickets.ts                  ← DISCIPLINES конфиг + массивы билетов + типы
+└── content/
+    └── advertising_content.ts  ← теория 99 рекламных билетов (~522KB markdown)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Добавить новую дисциплину
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Создать массив билетов `const myTickets: Ticket[] = [...]`
+2. Добавить одну строку в `DISCIPLINES` в `src/data/tickets.ts`:
+```ts
+my_discipline: { label: "Название", tickets: myTickets, total: 60 }
+```
+3. Добавить ключ в `DISCIPLINE_ORDER`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Добавить теорию к дисциплине
 
-## Learn More
+1. Положить исходник в `tickets_raw.md` (или аналогичный файл)
+2. Запустить `python3 extract_content.py` — создаст `src/data/content/advertising_content.ts`
+3. Передать `contentMap` в нужную дисциплину в `DISCIPLINES`
 
-To learn more about Next.js, take a look at the following resources:
+### Сгенерировать MCQ-вопросы
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Требует локального Ollama (`qwen2.5:32b`):
+```bash
+python3 generate_tickets.py
+```
+Пишет чекпоинт в `generate_checkpoint.json`, можно прерывать и продолжать.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Роутинг
 
-## Deploy on Vercel
+```
+/                              — главная, выбор дисциплины
+/ticket/[discipline]/[id]      — страница билета
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Прогресс хранится в `localStorage` с ключами вида `advertising-1`, `journalism-5`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Локальный запуск
+
+```bash
+npm install
+cp .env.local.example .env.local  # добавить OPENROUTER_API_KEY
+npm run dev
+```
+
+## Переменные окружения
+
+| Переменная | Описание |
+|---|---|
+| `OPENROUTER_API_KEY` | Ключ OpenRouter для AI-оценки открытых вопросов |
+
+## Деплой
+
+Vercel → GitHub main branch. Добавить `OPENROUTER_API_KEY` в Settings → Environment Variables проекта.
