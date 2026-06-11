@@ -42,6 +42,7 @@ export default function TicketPage() {
   const [sessionQuestions, setSessionQuestions] = useState<typeof ticket extends undefined ? never[] : (NonNullable<typeof ticket>["questions"])>([])
   const [openQuestion, setOpenQuestion] = useState("")
   const [attempts, setAttempts] = useState(0)
+  const [mode, setMode] = useState<"full" | "open-only">("full")
 
   const startSession = () => {
     if (!ticket) return
@@ -50,7 +51,7 @@ export default function TicketPage() {
     setSessionQuestions(picked as any)
     setOpenQuestion(open)
     setAttempts((a) => a + 1)
-    setPhase("quiz")
+    setPhase(mode === "open-only" ? "open" : "quiz")
   }
 
   const handleMCQComplete = () => setPhase("open")
@@ -118,25 +119,59 @@ export default function TicketPage() {
             <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 mb-5">
               <div className="text-5xl mb-4">📋</div>
               <h2 className="text-xl font-bold text-gray-900 mb-2">Тест по билету</h2>
+
+              {/* Mode switcher */}
+              <div className="flex rounded-xl border border-gray-200 overflow-hidden mb-6">
+                <button
+                  onClick={() => setMode("full")}
+                  className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                    mode === "full"
+                      ? "bg-indigo-600 text-white"
+                      : "bg-white text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  Тест + открытый вопрос
+                </button>
+                <button
+                  onClick={() => setMode("open-only")}
+                  className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                    mode === "open-only"
+                      ? "bg-purple-600 text-white"
+                      : "bg-white text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  Только открытый вопрос
+                </button>
+              </div>
+
               <p className="text-gray-500 text-sm leading-relaxed mb-6">
-                10 случайных вопросов из 30. Нужно ответить на все без ошибок,
-                затем ответить на открытый вопрос — его оценит AI.
+                {mode === "full"
+                  ? "10 случайных вопросов из 30. Нужно ответить на все без ошибок, затем ответить на открытый вопрос — его оценит AI."
+                  : "Сразу переходите к открытому вопросу. AI оценит понимание темы и вынесет вердикт."}
               </p>
+
               <div className="flex justify-center gap-6 mb-6 text-sm text-gray-600">
+                {mode === "full" && (
+                  <div className="flex items-center gap-2">
+                    <span className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">10</span>
+                    вопросов с выбором
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
-                  <span className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">10</span>
-                  вопросов с выбором
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs">1</span>
+                  <span className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${mode === "full" ? "bg-purple-100 text-purple-700" : "bg-purple-100 text-purple-700"}`}>1</span>
                   открытый вопрос
                 </div>
               </div>
+
               <button
                 onClick={startSession}
-                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors text-sm"
+                className={`w-full py-3.5 text-white font-semibold rounded-xl transition-colors text-sm ${
+                  mode === "full"
+                    ? "bg-indigo-600 hover:bg-indigo-700"
+                    : "bg-purple-600 hover:bg-purple-700"
+                }`}
               >
-                {attempts > 0 ? "Попробовать снова" : "Начать тест"}
+                {attempts > 0 ? "Попробовать снова" : mode === "full" ? "Начать тест" : "Перейти к вопросу"}
               </button>
             </div>
             {attempts > 0 && (
@@ -160,6 +195,7 @@ export default function TicketPage() {
         {/* Open question */}
         {phase === "open" && (
           <div>
+            {mode === "full" && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 flex items-center gap-3">
               <span className="text-2xl">✅</span>
               <div>
@@ -167,6 +203,7 @@ export default function TicketPage() {
                 <p className="text-xs text-emerald-600">Осталось ответить на открытый вопрос</p>
               </div>
             </div>
+            )}
             <OpenQuestion
               ticket={ticket}
               question={openQuestion}
