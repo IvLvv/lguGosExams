@@ -37,34 +37,48 @@ ${ticketContent ? `\nМатериал билета:\n${ticketContent}` : ""}
 Отвечай на вопросы студента по теме билета, объясняй простыми словами, приводи примеры. Общайся по-русски, кратко и по делу.`
   }
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://lgu-exam.vercel.app",
-      "X-Title": "LGU Exam Prep",
-    },
-    body: JSON.stringify({
-      model: "deepseek/deepseek-chat:free",
-      messages: [{ role: "system", content: systemPrompt }, ...messages],
-      stream: true,
-    }),
+  const MODELS = [
+    "openai/gpt-4o-mini",
+  ]
+
+  const body = (model: string) => JSON.stringify({
+    model,
+    messages: [{ role: "system", content: systemPrompt }, ...messages],
+    stream: true,
   })
 
-  if (!response.ok) {
-    const err = await response.text()
-    return new Response(JSON.stringify({ error: err }), {
-      status: response.status,
-      headers: { "Content-Type": "application/json" },
-    })
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+    "HTTP-Referer": "https://lgu-exam.vercel.app",
+    "X-Title": "LGU Exam Prep",
   }
 
-  return new Response(response.body, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
+  let lastErr = ""
+  for (const model of MODELS) {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers,
+      body: body(model),
+    })
+
+    if (response.ok) {
+      return new Response(response.body, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      })
+    }
+
+    lastErr = await response.text()
+    // Only retry on rate limit; for other errors bail immediately
+    if (response.status !== 429) break
+  }
+
+  return new Response(JSON.stringify({ error: lastErr }), {
+    status: 503,
+    headers: { "Content-Type": "application/json" },
   })
 }
