@@ -1,3 +1,5 @@
+import { advertisingContent } from "./content/advertising_content"
+
 export interface MCQQuestion {
   question: string
   options: [string, string, string, string]
@@ -749,11 +751,12 @@ export interface DisciplineConfig {
   label: string
   tickets: Ticket[]
   total: number  // ожидаемое кол-во (для заглушек пропущенных ID)
+  contentMap?: Record<number, string>  // теория: id → markdown-текст
 }
 
 // ─── Добавить новую дисциплину сюда ───────────────────────────────────────────
 export const DISCIPLINES: Record<string, DisciplineConfig> = {
-  advertising: { label: "Реклама",       tickets: advertisingTickets, total: 100 },
+  advertising: { label: "Реклама",       tickets: advertisingTickets, total: 100, contentMap: advertisingContent },
   journalism:  { label: "Журналистика",  tickets: journalismTickets,  total: 60  },
 }
 

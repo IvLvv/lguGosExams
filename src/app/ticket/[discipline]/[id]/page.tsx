@@ -3,12 +3,34 @@
 import { useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
+import ReactMarkdown from "react-markdown"
 import { DISCIPLINES, QUESTIONS_PER_SESSION } from "@/data/tickets"
 import { useProgress } from "@/hooks/useProgress"
 import QuizSession from "@/components/quiz/QuizSession"
 import OpenQuestion from "@/components/quiz/OpenQuestion"
 
 type Phase = "landing" | "quiz" | "open" | "done"
+
+function formatTheory(raw: string): string {
+  // Strip leading title line (already in ticket header)
+  let text = raw.replace(/^\*{0,2}\d+\.\s+[^\n]+\n\n?/, "")
+
+  // Convert • bullets to markdown dashes
+  text = text.replace(/^•\s*/gm, "- ")
+
+  // Collapse blank lines between consecutive list items so react-markdown
+  // treats them as one list, not separate single-item lists
+  let prev = ""
+  while (prev !== text) {
+    prev = text
+    text = text.replace(/^(- [^\n]*)\n\n(- )/gm, "$1\n$2")
+  }
+
+  // Bold-only section headers (**Заголовок:**) → proper h4
+  text = text.replace(/^\*\*([^*\n]+)\*\*\s*$/gm, "#### $1")
+
+  return text.trim()
+}
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
@@ -38,6 +60,7 @@ export default function TicketPage() {
 
   const disc = DISCIPLINES[disciplineKey]
   const ticket = disc?.tickets.find((t) => t.id === id)
+  const theoryText = disc?.contentMap?.[id] ?? null
 
   const { getTicketProgress, markPassed } = useProgress()
   const ticketProgress = getTicketProgress(disciplineKey, id)
@@ -121,6 +144,25 @@ export default function TicketPage() {
                   Уже пройден
                 </span>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Theory */}
+        {phase === "landing" && theoryText && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+              <span className="text-base">📖</span>
+              <span className="text-sm font-semibold text-gray-700">Теория</span>
+            </div>
+            <div className="px-6 py-5 prose prose-sm prose-gray max-w-none
+              prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-1
+              prose-h4:text-xs prose-h4:uppercase prose-h4:tracking-wider prose-h4:text-indigo-500
+              prose-p:text-gray-700 prose-p:leading-relaxed prose-p:my-1.5
+              prose-li:text-gray-700 prose-li:my-0.5
+              prose-ul:my-1.5
+              prose-strong:text-gray-900 prose-strong:font-semibold">
+              <ReactMarkdown>{formatTheory(theoryText)}</ReactMarkdown>
             </div>
           </div>
         )}
