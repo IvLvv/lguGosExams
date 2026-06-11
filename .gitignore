@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# generation artifacts
+tickets_raw.md
+generate_checkpoint.json
+__pycache__/
