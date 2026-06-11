@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { tickets, QUESTIONS_PER_SESSION } from "@/data/tickets"
+import { DISCIPLINES, QUESTIONS_PER_SESSION } from "@/data/tickets"
 import { useProgress } from "@/hooks/useProgress"
 import QuizSession from "@/components/quiz/QuizSession"
 import OpenQuestion from "@/components/quiz/OpenQuestion"
@@ -33,22 +33,43 @@ function DifficultyStars({ n }: { n: number }) {
 
 export default function TicketPage() {
   const params = useParams()
+  const disciplineKey = String(params.discipline)
   const id = Number(params.id)
-  const { progress, markPassed } = useProgress()
-  const ticket = tickets.find((t) => t.id === id)
-  const ticketProgress = progress[id]
+
+  const disc = DISCIPLINES[disciplineKey]
+  const ticket = disc?.tickets.find((t) => t.id === id)
+
+  const { getTicketProgress, markPassed } = useProgress()
+  const ticketProgress = getTicketProgress(disciplineKey, id)
 
   const [phase, setPhase] = useState<Phase>("landing")
-  const [sessionQuestions, setSessionQuestions] = useState<typeof ticket extends undefined ? never[] : (NonNullable<typeof ticket>["questions"])>([])
+  const [sessionQuestions, setSessionQuestions] = useState<NonNullable<typeof ticket>["questions"]>([])
   const [openQuestion, setOpenQuestion] = useState("")
   const [attempts, setAttempts] = useState(0)
   const [mode, setMode] = useState<"full" | "open-only">("full")
 
+  if (!disc) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-gray-500">
+        <p className="text-lg">Дисциплина не найдена</p>
+        <Link href="/" className="text-indigo-600 hover:underline text-sm">← К списку билетов</Link>
+      </div>
+    )
+  }
+
+  if (!ticket) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-gray-500">
+        <p className="text-lg">Билет №{id} ещё не добавлен</p>
+        <Link href="/" className="text-indigo-600 hover:underline text-sm">← К списку билетов</Link>
+      </div>
+    )
+  }
+
   const startSession = () => {
-    if (!ticket) return
     const picked = shuffle(ticket.questions).slice(0, QUESTIONS_PER_SESSION)
     const open = shuffle(ticket.openQuestions)[0]
-    setSessionQuestions(picked as any)
+    setSessionQuestions(picked)
     setOpenQuestion(open)
     setAttempts((a) => a + 1)
     setPhase(mode === "open-only" ? "open" : "quiz")
@@ -58,22 +79,11 @@ export default function TicketPage() {
   const handleExit = () => setPhase("landing")
 
   const handlePassed = () => {
-    markPassed(id, 3)
+    markPassed(disciplineKey, id, 3)
     setPhase("done")
   }
 
-  const handleFailed = () => {
-    setPhase("landing")
-  }
-
-  if (!ticket) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-gray-500">
-        <p className="text-lg">Билет №{id} ещё не добавлен</p>
-        <Link href="/" className="text-indigo-600 hover:underline text-sm">← Назад к списку</Link>
-      </div>
-    )
-  }
+  const handleFailed = () => setPhase("landing")
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/10">
@@ -89,15 +99,17 @@ export default function TicketPage() {
           Все билеты
         </Link>
 
-        {/* Ticket header (always visible) */}
+        {/* Ticket header */}
         {phase !== "done" && (
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-8 flex items-start gap-4">
             <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center flex-shrink-0">
-              {ticket.id}
+              {id}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs text-gray-400 font-medium tracking-wider uppercase">Билет {ticket.id}</span>
+                <span className="text-xs text-gray-400 font-medium tracking-wider uppercase">
+                  {disc.label} · Билет {id}
+                </span>
                 <DifficultyStars n={ticket.difficulty} />
               </div>
               <p className="text-gray-900 font-semibold leading-snug">{ticket.title}</p>
@@ -125,9 +137,7 @@ export default function TicketPage() {
                 <button
                   onClick={() => setMode("full")}
                   className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-                    mode === "full"
-                      ? "bg-indigo-600 text-white"
-                      : "bg-white text-gray-500 hover:bg-gray-50"
+                    mode === "full" ? "bg-indigo-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
                   }`}
                 >
                   Тест + открытый вопрос
@@ -135,9 +145,7 @@ export default function TicketPage() {
                 <button
                   onClick={() => setMode("open-only")}
                   className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-                    mode === "open-only"
-                      ? "bg-purple-600 text-white"
-                      : "bg-white text-gray-500 hover:bg-gray-50"
+                    mode === "open-only" ? "bg-purple-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
                   }`}
                 >
                   Только открытый вопрос
@@ -158,7 +166,7 @@ export default function TicketPage() {
                   </div>
                 )}
                 <div className="flex items-center gap-2">
-                  <span className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${mode === "full" ? "bg-purple-100 text-purple-700" : "bg-purple-100 text-purple-700"}`}>1</span>
+                  <span className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs">1</span>
                   открытый вопрос
                 </div>
               </div>
@@ -166,9 +174,7 @@ export default function TicketPage() {
               <button
                 onClick={startSession}
                 className={`w-full py-3.5 text-white font-semibold rounded-xl transition-colors text-sm ${
-                  mode === "full"
-                    ? "bg-indigo-600 hover:bg-indigo-700"
-                    : "bg-purple-600 hover:bg-purple-700"
+                  mode === "full" ? "bg-indigo-600 hover:bg-indigo-700" : "bg-purple-600 hover:bg-purple-700"
                 }`}
               >
                 {attempts > 0 ? "Попробовать снова" : mode === "full" ? "Начать тест" : "Перейти к вопросу"}
@@ -189,24 +195,22 @@ export default function TicketPage() {
           />
         )}
 
-        {/* Transition to open question */}
-        {phase === "quiz" ? null : null}
-
         {/* Open question */}
         {phase === "open" && (
           <div>
             {mode === "full" && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 flex items-center gap-3">
-              <span className="text-2xl">✅</span>
-              <div>
-                <p className="text-sm font-semibold text-emerald-800">10 из 10 — отлично!</p>
-                <p className="text-xs text-emerald-600">Осталось ответить на открытый вопрос</p>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 flex items-center gap-3">
+                <span className="text-2xl">✅</span>
+                <div>
+                  <p className="text-sm font-semibold text-emerald-800">10 из 10 — отлично!</p>
+                  <p className="text-xs text-emerald-600">Осталось ответить на открытый вопрос</p>
+                </div>
               </div>
-            </div>
             )}
             <OpenQuestion
               ticket={ticket}
               question={openQuestion}
+              displayId={id}
               onPassed={handlePassed}
               onFailed={handleFailed}
             />
@@ -219,7 +223,7 @@ export default function TicketPage() {
             <div className="text-6xl mb-4">🎓</div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Билет пройден!</h2>
             <p className="text-gray-500 text-sm mb-8">
-              Отличная работа! Вы успешно сдали билет №{ticket.id}
+              Отличная работа! Вы успешно сдали билет №{id}
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link
@@ -228,9 +232,9 @@ export default function TicketPage() {
               >
                 К списку билетов
               </Link>
-              {id < 60 && tickets.find((t) => t.id === id + 1) && (
+              {disc.tickets.find((t) => t.id === id + 1) && (
                 <Link
-                  href={`/ticket/${id + 1}`}
+                  href={`/ticket/${disciplineKey}/${id + 1}`}
                   className="px-6 py-3 border-2 border-indigo-200 text-indigo-600 hover:border-indigo-400 font-semibold rounded-xl transition-colors text-sm"
                 >
                   Следующий билет →

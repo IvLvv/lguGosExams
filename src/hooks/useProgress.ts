@@ -4,12 +4,12 @@ import { useState, useEffect, useCallback } from "react"
 
 export interface TicketProgress {
   passed: boolean
-  stars: number // 0-3 based on performance
+  stars: number
 }
 
-type ProgressMap = Record<number, TicketProgress>
+type ProgressMap = Record<string, TicketProgress>
 
-const STORAGE_KEY = "ticket_progress"
+const STORAGE_KEY = "ticket_progress_v2"
 
 export function useProgress() {
   const [progress, setProgress] = useState<ProgressMap>({})
@@ -21,16 +21,10 @@ export function useProgress() {
     } catch {}
   }, [])
 
-  const save = useCallback((map: ProgressMap) => {
-    setProgress(map)
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
-    } catch {}
-  }, [])
-
-  const markPassed = useCallback((ticketId: number, stars: number) => {
+  const markPassed = useCallback((discipline: string, ticketId: number, stars: number) => {
+    const key = `${discipline}-${ticketId}`
     setProgress((prev) => {
-      const next = { ...prev, [ticketId]: { passed: true, stars } }
+      const next = { ...prev, [key]: { passed: true, stars } }
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
       } catch {}
@@ -38,7 +32,20 @@ export function useProgress() {
     })
   }, [])
 
-  const passedCount = Object.values(progress).filter((p) => p.passed).length
+  const getTicketProgress = useCallback(
+    (discipline: string, ticketId: number): TicketProgress | undefined => {
+      return progress[`${discipline}-${ticketId}`]
+    },
+    [progress]
+  )
 
-  return { progress, markPassed, save, passedCount }
+  const passedCountForDiscipline = useCallback(
+    (discipline: string) =>
+      Object.entries(progress).filter(
+        ([key, p]) => p.passed && key.startsWith(`${discipline}-`)
+      ).length,
+    [progress]
+  )
+
+  return { progress, markPassed, getTicketProgress, passedCountForDiscipline }
 }

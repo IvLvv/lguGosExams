@@ -11,6 +11,7 @@ interface Message {
 interface Props {
   ticket: Ticket
   question: string
+  displayId?: number
   onPassed: () => void
   onFailed: () => void
 }
@@ -18,7 +19,7 @@ interface Props {
 const PASSED_SIGNAL = "[[PASSED]]"
 const FAILED_SIGNAL = "[[FAILED]]"
 
-export default function OpenQuestion({ ticket, question, onPassed, onFailed }: Props) {
+export default function OpenQuestion({ ticket, question, displayId, onPassed, onFailed }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
@@ -106,7 +107,7 @@ export default function OpenQuestion({ ticket, question, onPassed, onFailed }: P
       {/* Header */}
       <div className="bg-indigo-600 text-white rounded-2xl p-5 mb-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-indigo-200 mb-1">
-          Открытый вопрос · Билет {ticket.id}
+          Открытый вопрос · Билет {displayId ?? ticket.id}
         </p>
         <p className="font-semibold text-lg leading-snug">{question}</p>
       </div>

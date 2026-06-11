@@ -6,6 +6,8 @@ import { TicketProgress } from "@/hooks/useProgress"
 
 interface Props {
   ticket: Ticket
+  discipline: string
+  displayId: number
   progress?: TicketProgress
 }
 
@@ -27,11 +29,11 @@ function Stars({ difficulty, filled }: { difficulty: number; filled?: boolean })
   )
 }
 
-export default function TicketCard({ ticket, progress }: Props) {
+export default function TicketCard({ ticket, discipline, displayId, progress }: Props) {
   const passed = progress?.passed
 
   return (
-    <Link href={`/ticket/${ticket.id}`}>
+    <Link href={`/ticket/${discipline}/${ticket.id}`}>
       <div
         className={`
           group relative bg-white rounded-2xl p-5 flex gap-4 items-start
@@ -48,14 +50,14 @@ export default function TicketCard({ ticket, progress }: Props) {
             ${passed ? "bg-emerald-100 text-emerald-700" : "bg-indigo-100 text-indigo-700"}
           `}
         >
-          {ticket.id}
+          {displayId}
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-medium text-gray-400 tracking-wider uppercase">
-              Билет {ticket.id}
+              Билет {displayId}
             </span>
             <Stars difficulty={ticket.difficulty} filled={passed} />
           </div>

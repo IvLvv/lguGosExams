@@ -12,7 +12,7 @@ export interface Ticket {
   openQuestions: string[]      // 5 открытых вопросов, берём 1 случайный
 }
 
-export const tickets: Ticket[] = [
+const advertisingTickets: Ticket[] = [
   {
     id: 1,
     title: "Происхождение термина «реклама», понятие и виды рекламы, рекламное сообщение как элемент рекламной коммуникации",
@@ -734,8 +734,31 @@ export const tickets: Ticket[] = [
     difficulty: 1,
     questions: [],
     openQuestions: [],
-  }
+  },
 ]
-export const totalTickets = 99
+
+const journalismTickets: Ticket[] = Array.from({ length: 60 }, (_, i) => ({
+  id: i + 1,
+  title: "Билет в разработке",
+  difficulty: 1 as const,
+  questions: [] as MCQQuestion[],
+  openQuestions: [] as string[],
+}))
+
+export interface DisciplineConfig {
+  label: string
+  tickets: Ticket[]
+  total: number  // ожидаемое кол-во (для заглушек пропущенных ID)
+}
+
+// ─── Добавить новую дисциплину сюда ───────────────────────────────────────────
+export const DISCIPLINES: Record<string, DisciplineConfig> = {
+  advertising: { label: "Реклама",       tickets: advertisingTickets, total: 100 },
+  journalism:  { label: "Журналистика",  tickets: journalismTickets,  total: 60  },
+}
+
+export const DISCIPLINE_ORDER = ["advertising", "journalism"] as const
+export type DisciplineKey = (typeof DISCIPLINE_ORDER)[number]
+
 export const QUESTIONS_PER_SESSION = 10
 export const OPEN_QUESTIONS_POOL = 5
