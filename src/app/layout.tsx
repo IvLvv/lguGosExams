@@ -18,6 +18,7 @@ export const metadata: Metadata = {
     template: "%s | Госэкзамен",
   },
   description: "Подготовка к государственному экзамену по рекламе и журналистике",
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({
