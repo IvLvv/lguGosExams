@@ -12,7 +12,7 @@ import sys
 import time
 import os
 
-OLLAMA_URL = "http://localhost:11434/v1/chat/completions"
+OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL = "qwen2.5:32b"
 OUTPUT_FILE = os.path.join(os.path.dirname(__file__), "src/data/tickets.ts")
 CHECKPOINT_FILE = os.path.join(os.path.dirname(__file__), "generate_checkpoint.json")
@@ -108,9 +108,12 @@ def call_ollama(prompt, max_tokens=4000, retries=3):
     payload = json.dumps({
         "model": MODEL,
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": max_tokens,
-        "temperature": 0.3,
-        "stream": False,
+        "stream": True,
+        "options": {
+            "num_ctx": 4096,
+            "num_predict": max_tokens,
+            "temperature": 0.3,
+        },
     }).encode('utf-8')
 
     for attempt in range(retries):
@@ -121,11 +124,25 @@ def call_ollama(prompt, max_tokens=4000, retries=3):
                 headers={"Content-Type": "application/json"},
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=180) as resp:
-                data = json.loads(resp.read().decode('utf-8'))
-                return data['choices'][0]['message']['content']
+            chunks = []
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                for raw_line in resp:
+                    line = raw_line.decode('utf-8').strip()
+                    if not line:
+                        continue
+                    try:
+                        chunk = json.loads(line)
+                        token = chunk.get('message', {}).get('content', '')
+                        if token:
+                            chunks.append(token)
+                            print('.', end='', flush=True)
+                        if chunk.get('done'):
+                            break
+                    except Exception:
+                        pass
+            return ''.join(chunks)
         except Exception as e:
-            print(f"    Attempt {attempt+1} failed: {e}")
+            print(f"\n    Attempt {attempt+1} failed: {e}")
             if attempt < retries - 1:
                 time.sleep(5)
     return None
@@ -141,74 +158,94 @@ MCQ_PROMPT = """Ты генерируешь вопросы для экзамен
 {content}
 ---
 
-Сгенерируй РОВНО 30 вопросов с выбором ответа (MCQ) и 5 открытых вопросов на понимание темы.
+Сгенерируй РОВНО 15 вопросов с выбором ответа (MCQ).
 
-ТРЕБОВАНИЯ К MCQ:
+ТРЕБОВАНИЯ:
 - 4 варианта ответа (A, B, C, D)
 - Один однозначно правильный ответ
 - Вопросы разной сложности: фактические, понятийные, аналитические
 - Основаны ТОЛЬКО на тексте билета
 - На русском языке
+- ЗАПРЕЩЕНО использовать фразы "согласно тексту", "по тексту", "в тексте", "как указано", "согласно материалу" — вопрос должен быть самодостаточным, как будто текста нет
 
 ФОРМАТ ОТВЕТА — только JSON, без пояснений:
-{{
-  "mcq": [
-    {{
-      "question": "Текст вопроса?",
-      "options": ["Вариант A", "Вариант B", "Вариант C", "Вариант D"],
-      "correct": 0
-    }}
-  ],
-  "open": [
-    "Открытый вопрос 1?",
-    "Открытый вопрос 2?",
-    "Открытый вопрос 3?",
-    "Открытый вопрос 4?",
-    "Открытый вопрос 5?"
-  ]
-}}
+[
+  {{
+    "question": "Текст вопроса?",
+    "options": ["Вариант A", "Вариант B", "Вариант C", "Вариант D"],
+    "correct": 0
+  }}
+]
 
 correct — индекс правильного ответа (0=A, 1=B, 2=C, 3=D).
-Верни ТОЛЬКО JSON, без markdown-блоков и пояснений."""
+Верни ТОЛЬКО JSON-массив, без markdown-блоков и пояснений."""
+
+OPEN_PROMPT = """Ты генерируешь открытые вопросы для экзамена по курсу "Реклама и связи с общественностью".
+
+Тема билета: "{title}"
+
+Текст билета:
+---
+{content}
+---
+
+Сгенерируй РОВНО 5 открытых вопросов на понимание темы. Вопросы должны требовать развёрнутого ответа.
+ЗАПРЕЩЕНО использовать фразы "согласно тексту", "по тексту", "в тексте", "как указано" — вопрос должен быть самодостаточным.
+
+ФОРМАТ ОТВЕТА — только JSON, без пояснений:
+["Вопрос 1?", "Вопрос 2?", "Вопрос 3?", "Вопрос 4?", "Вопрос 5?"]
+
+Верни ТОЛЬКО JSON-массив строк, без markdown-блоков и пояснений."""
+
+def parse_json(raw):
+    raw = raw.strip()
+    raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.MULTILINE)
+    raw = re.sub(r'\s*```$', '', raw, flags=re.MULTILINE)
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        m = re.search(r'[\[\{][\s\S]*[\]\}]', raw)
+        if m:
+            try:
+                return json.loads(m.group(0))
+            except:
+                pass
+    return None
 
 def generate_for_ticket(ticket):
     content = ticket['content']
-    # Truncate very long content to ~4000 chars
-    if len(content) > 4000:
-        content = content[:4000] + "\n...[текст сокращён]"
+    if len(content) > 2000:
+        content = content[:2000] + "\n...[текст сокращён]"
 
-    prompt = MCQ_PROMPT.format(title=ticket['title'], content=content)
-    raw = call_ollama(prompt, max_tokens=5000)
-    if not raw:
-        return None
+    ctx = {'title': ticket['title'], 'content': content}
 
-    # Extract JSON from response
-    raw = raw.strip()
-    # Remove markdown code blocks if present
-    raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.MULTILINE)
-    raw = re.sub(r'\s*```$', '', raw, flags=re.MULTILINE)
+    # Request 1: first 15 MCQ
+    raw1 = call_ollama(MCQ_PROMPT.format(**ctx), max_tokens=2000)
+    mcq1 = parse_json(raw1) if raw1 else None
+    if not isinstance(mcq1, list):
+        print(f"    WARNING: MCQ batch 1 parse failed")
+        mcq1 = []
 
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        # Try to find JSON object in response
-        m = re.search(r'\{[\s\S]*\}', raw)
-        if m:
-            try:
-                data = json.loads(m.group(0))
-            except:
-                return None
-        else:
-            return None
+    # Request 2: second 15 MCQ
+    raw2 = call_ollama(MCQ_PROMPT.format(**ctx), max_tokens=2000)
+    mcq2 = parse_json(raw2) if raw2 else None
+    if not isinstance(mcq2, list):
+        print(f"    WARNING: MCQ batch 2 parse failed")
+        mcq2 = []
 
-    mcq = data.get('mcq', [])
-    open_qs = data.get('open', [])
+    mcq = (mcq1 + mcq2)[:30]
 
-    # Validate
+    # Request 3: open questions
+    raw3 = call_ollama(OPEN_PROMPT.format(**ctx), max_tokens=300)
+    open_qs = parse_json(raw3) if raw3 else None
+    if not isinstance(open_qs, list):
+        print(f"    WARNING: open questions parse failed")
+        open_qs = []
+
     if len(mcq) < 10 or len(open_qs) < 3:
         print(f"    WARNING: got {len(mcq)} MCQ, {len(open_qs)} open — too few!")
 
-    return {'mcq': mcq[:30], 'open': open_qs[:5]}
+    return {'mcq': mcq[:30], 'open': [str(q) for q in open_qs[:5]]}
 
 # ─── TypeScript output ────────────────────────────────────────────────────────
 
@@ -222,7 +259,7 @@ def ticket_to_ts(ticket_data, questions):
     mcq_lines = []
     for q in questions['mcq']:
         question = escape_ts(q['question'])
-        opts = [escape_ts(str(o)) for o in q['options']]
+        opts = [escape_ts(str(o)) for o in (q.get('options') or q.get('output') or [])]
         correct = int(q['correct'])
         opts_str = ', '.join(f'"{o}"' for o in opts[:4])
         mcq_lines.append(
@@ -248,6 +285,18 @@ def ticket_to_ts(ticket_data, questions):
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
+    # Usage:
+    #   python generate_tickets.py          — full run (skip cached)
+    #   python generate_tickets.py 5        — test single ticket, print JSON only
+    #   python generate_tickets.py --redo 1 2 3  — force-regenerate specific tickets
+    redo = set()
+    only = None
+    args = sys.argv[1:]
+    if args and args[0] == '--redo':
+        redo = {int(x) for x in args[1:]}
+    elif args:
+        only = int(args[0])
+
     doc_path = os.path.join(os.path.dirname(__file__), "tickets_raw.md")
     print(f"Parsing {doc_path}...")
     tickets = parse_document(doc_path)
@@ -255,12 +304,16 @@ def main():
 
     # Load checkpoint
     checkpoint = {}
-    if os.path.exists(CHECKPOINT_FILE):
+    if os.path.exists(CHECKPOINT_FILE) and not only:
         with open(CHECKPOINT_FILE, 'r', encoding='utf-8') as f:
             checkpoint = json.load(f)
         print(f"Resuming from checkpoint: {len(checkpoint)} tickets already done")
+    if redo:
+        for n in redo:
+            checkpoint.pop(str(n), None)
+        print(f"Force-redo: {sorted(redo)}")
 
-    sorted_nums = sorted(tickets.keys())
+    sorted_nums = [only] if only else sorted(tickets.keys())
     results = dict(checkpoint)
 
     for num in sorted_nums:
@@ -282,6 +335,14 @@ def main():
             print(f" ✓ {len(qs['mcq'])} MCQ, {len(qs['open'])} open ({elapsed:.0f}s)")
         else:
             print(f" ✗ FAILED — skipping")
+
+    # In single-ticket test mode: just print JSON and exit
+    if only:
+        key = str(only)
+        if key in results:
+            print(f"\n{'─'*60}")
+            print(json.dumps(results[key], ensure_ascii=False, indent=2))
+        return
 
     # Build TypeScript file
     print(f"\nBuilding {OUTPUT_FILE}...")
