@@ -15,6 +15,7 @@ type Phase = "quiz" | "retry"
 export default function QuizSession({ questions, onComplete, onExit }: Props) {
   const [phase, setPhase] = useState<Phase>("quiz")
   const [current, setCurrent] = useState(0)
+  const [score, setScore] = useState(0)
   const [errors, setErrors] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
   const [answerState, setAnswerState] = useState<AnswerState>("idle")
@@ -40,6 +41,7 @@ export default function QuizSession({ questions, onComplete, onExit }: Props) {
       if (answerState !== "idle") return
       setSelected(idx)
       if (idx === q.correct) {
+        setScore((s) => s + 1)
         setAnswerState("correct")
         setTimeout(advance, 700)
       } else {
@@ -53,6 +55,7 @@ export default function QuizSession({ questions, onComplete, onExit }: Props) {
   const handleRetry = () => {
     setPhase("quiz")
     setCurrent(0)
+    setScore(0)
     setErrors(0)
     setSelected(null)
     setAnswerState("idle")
@@ -97,7 +100,7 @@ export default function QuizSession({ questions, onComplete, onExit }: Props) {
           <span className="text-sm font-medium text-gray-600">
             Вопрос {current + 1} из {questions.length}
           </span>
-          <span className="text-sm text-gray-400">{current} правильных</span>
+          <span className="text-sm text-gray-400">{score} правильных</span>
         </div>
         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
           <div
@@ -155,14 +158,22 @@ export default function QuizSession({ questions, onComplete, onExit }: Props) {
 
       {/* Wrong answer */}
       {answerState === "wrong" && (
-        <div className="mt-5 flex items-center justify-between bg-red-50 border border-red-200 rounded-2xl p-4">
-          <p className="text-red-700 text-sm font-medium">Неверно — правильный ответ выделен</p>
-          <button
-            onClick={advance}
-            className="ml-4 flex-shrink-0 px-5 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors"
-          >
-            Далее →
-          </button>
+        <div className="mt-5 bg-red-50 border border-red-200 rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between p-4">
+            <p className="text-red-700 text-sm font-medium">Неверно — правильный ответ выделен</p>
+            <button
+              onClick={advance}
+              className="ml-4 flex-shrink-0 px-5 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors"
+            >
+              Далее →
+            </button>
+          </div>
+          {q.explanation && (
+            <div className="px-4 pb-4 border-t border-red-100">
+              <p className="text-xs font-semibold text-red-400 uppercase tracking-wider mt-3 mb-1">Пояснение</p>
+              <p className="text-red-800 text-sm leading-relaxed">{q.explanation}</p>
+            </div>
+          )}
         </div>
       )}
 

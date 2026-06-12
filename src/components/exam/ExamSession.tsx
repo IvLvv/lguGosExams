@@ -184,14 +184,22 @@ export default function ExamSession({ questions, mode, onRestart, onPerfect }: P
 
       {/* Learn mode: wrong → continue */}
       {answerState === "wrong" && mode === "learn" && (
-        <div className="mt-5 flex items-center justify-between bg-red-50 border border-red-200 rounded-2xl p-4">
-          <p className="text-red-700 text-sm font-medium">Неверно — правильный ответ выделен</p>
-          <button
-            onClick={advance}
-            className="ml-4 flex-shrink-0 px-5 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors"
-          >
-            Далее →
-          </button>
+        <div className="mt-5 bg-red-50 border border-red-200 rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between p-4">
+            <p className="text-red-700 text-sm font-medium">Неверно — правильный ответ выделен</p>
+            <button
+              onClick={advance}
+              className="ml-4 flex-shrink-0 px-5 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors"
+            >
+              Далее →
+            </button>
+          </div>
+          {q.explanation && (
+            <div className="px-4 pb-4 border-t border-red-100">
+              <p className="text-xs font-semibold text-red-400 uppercase tracking-wider mt-3 mb-1">Пояснение</p>
+              <p className="text-red-800 text-sm leading-relaxed">{q.explanation}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
