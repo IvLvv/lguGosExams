@@ -11,28 +11,24 @@ interface Props {
   progress?: TicketProgress
 }
 
-function Stars({ difficulty, filled }: { difficulty: number; filled?: boolean }) {
-  return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3].map((i) => {
-        const active = i <= difficulty
-        const color = filled
-          ? active ? "text-emerald-400" : "text-gray-300"
-          : active ? "text-red-400" : "text-gray-300"
-        return (
-          <svg key={i} className={`w-3.5 h-3.5 ${color}`} fill="currentColor" viewBox="0 0 20 20">
-            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-          </svg>
-        )
-      })}
-    </div>
-  )
-}
 
 export default function TicketCard({ ticket, discipline, displayId, progress }: Props) {
   const passed = progress?.passed
+  const hasQuestions = ticket.questions.length > 0
 
   return (
+    <div className="relative group/card">
+      {hasQuestions && (
+        <Link
+          href={`/bank/${discipline}/${ticket.id}`}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute top-2 right-2 z-10 opacity-0 group-hover/card:opacity-100 transition-opacity
+            px-2 py-0.5 rounded-md text-xs font-medium bg-white border border-gray-200
+            text-gray-400 hover:text-indigo-600 hover:border-indigo-300 shadow-sm"
+        >
+          банк
+        </Link>
+      )}
     <Link href={`/ticket/${discipline}/${ticket.id}`}>
       <div
         className={`
@@ -59,7 +55,6 @@ export default function TicketCard({ ticket, discipline, displayId, progress }: 
             <span className="text-xs font-medium text-gray-400 tracking-wider uppercase">
               Билет {displayId}
             </span>
-            <Stars difficulty={ticket.difficulty} filled={passed} />
           </div>
           <p className="text-sm font-medium text-gray-800 leading-snug line-clamp-3">
             {ticket.title}
@@ -76,5 +71,6 @@ export default function TicketCard({ ticket, discipline, displayId, progress }: 
         )}
       </div>
     </Link>
+    </div>
   )
 }
