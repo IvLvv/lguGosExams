@@ -43,4 +43,6 @@ next-env.d.ts
 # generation artifacts
 tickets_raw.md
 generate_checkpoint.json
+explanations_checkpoint.json
+explanations_log.txt
 __pycache__/

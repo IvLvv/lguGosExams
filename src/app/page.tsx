@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { DISCIPLINES, DISCIPLINE_ORDER, type DisciplineKey } from "@/data/tickets"
 import TicketCard from "@/components/TicketCard"
 import { useProgress } from "@/hooks/useProgress"
@@ -67,6 +68,16 @@ export default function HomePage() {
                 ({Math.round((passedCount / disc.total) * 100)}%)
               </span>
             )}
+          </div>
+
+          {/* Final exam link */}
+          <div className="mt-4">
+            <Link
+              href={`/exam/${discipline}`}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition-colors"
+            >
+              📝 Итоговый тест
+            </Link>
           </div>
         </div>
 
