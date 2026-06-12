@@ -19,6 +19,7 @@ export default function QuizSession({ questions, onComplete, onExit }: Props) {
   const [errors, setErrors] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
   const [answerState, setAnswerState] = useState<AnswerState>("idle")
+  const [results, setResults] = useState<("correct" | "wrong" | null)[]>(() => Array(questions.length).fill(null))
 
   const q = questions[current]
 
@@ -42,10 +43,12 @@ export default function QuizSession({ questions, onComplete, onExit }: Props) {
       setSelected(idx)
       if (idx === q.correct) {
         setScore((s) => s + 1)
+        setResults((r) => { const n = [...r]; n[current] = "correct"; return n })
         setAnswerState("correct")
         setTimeout(advance, 700)
       } else {
         setErrors((e) => e + 1)
+        setResults((r) => { const n = [...r]; n[current] = "wrong"; return n })
         setAnswerState("wrong")
       }
     },
@@ -59,6 +62,7 @@ export default function QuizSession({ questions, onComplete, onExit }: Props) {
     setErrors(0)
     setSelected(null)
     setAnswerState("idle")
+    setResults(Array(questions.length).fill(null))
   }
 
   if (phase === "retry") {
@@ -114,7 +118,9 @@ export default function QuizSession({ questions, onComplete, onExit }: Props) {
             <div
               key={i}
               className={`w-2 h-2 rounded-full transition-colors ${
-                i < current ? "bg-emerald-400" : i === current ? "bg-indigo-500" : "bg-gray-200"
+                results[i] === "correct" ? "bg-emerald-400" :
+                results[i] === "wrong" ? "bg-red-400" :
+                i === current ? "bg-indigo-500" : "bg-gray-200"
               }`}
             />
           ))}
